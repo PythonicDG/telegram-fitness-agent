@@ -1,15 +1,33 @@
 import json
+import gspread
 from datetime import datetime
-from typing import Optional
-
+from typing import Optional, List
+from gspread.exceptions import WorksheetNotFound
 
 class SheetDB:
-    """Simple database using Google Sheets."""
+    """Simple database using Google Sheets with auto-setup."""
+
+    # Define headers exactly as they should appear in the sheet
+    USER_HEADERS = ["user_id", "state", "daily_sub_state", "profile_json", "fitness_maturity", "current_habits_json", "today_plan_json", "negotiation_round", "consecutive_misses", "streak", "days_active", "created_at"]
+    MESSAGE_HEADERS = ["user_id", "role", "content", "context_type", "created_at"]
+    PLAN_HEADERS = ["user_id", "date", "plan_json", "status", "completion_pct", "negotiation_count", "miss_reason", "evening_reflection"]
 
     def __init__(self, spreadsheet):
-        self.users = spreadsheet.worksheet("users")
-        self.messages = spreadsheet.worksheet("messages")
-        self.plans = spreadsheet.worksheet("daily_plans")
+        self._spreadsheet = spreadsheet
+        # Auto-setup worksheets if they don't exist
+        self.users = self._ensure_worksheet("users", self.USER_HEADERS)
+        self.messages = self._ensure_worksheet("messages", self.MESSAGE_HEADERS)
+        self.plans = self._ensure_worksheet("daily_plans", self.PLAN_HEADERS)
+
+    def _ensure_worksheet(self, name: str, headers: List[str]):
+        try:
+            return self._spreadsheet.worksheet(name)
+        except WorksheetNotFound:
+            print(f"   🛠️ Sheet tab '{name}' not found. Creating it now...")
+            # Create with 1000 rows to start
+            ws = self._spreadsheet.add_worksheet(title=name, rows="1000", cols=str(len(headers)))
+            ws.append_row(headers)
+            return ws
 
     # ---------- USER OPERATIONS ----------
 
@@ -29,13 +47,29 @@ class SheetDB:
 
     def create_user(self, user_id: str) -> dict:
         now = datetime.now().isoformat()
+        # Create user dictionary matching USER_HEADERS order
         new_user = {
-            "user_id": str(user_id), "state": "ONBOARDING", "daily_sub_state": "",
-            "profile_json": "{}", "fitness_maturity": "", "current_habits_json": "[]",
-            "today_plan_json": "{}", "negotiation_round": 0, "consecutive_misses": 0,
-            "streak": 0, "days_active": 0, "created_at": now,
+            "user_id": str(user_id),
+            "state": "ONBOARDING",
+            "daily_sub_state": "",
+            "profile_json": "{}",
+            "fitness_maturity": "",
+            "current_habits_json": "[]",
+            "today_plan_json": "{}",
+            "negotiation_round": 0,
+            "consecutive_misses": 0,
+            "streak": 0,
+            "days_active": 0,
+            "created_at": now,
         }
-        self.users.append_row(list(new_user.values()))
+        # Use headers to ensure correct value order
+        row_values = [new_user.get(h, "") for h in self.USER_HEADERS]
+        self.users.append_row(row_values)
+        
+        # Attach dict versions for in-memory use
+        new_user["profile"] = {}
+        new_user["current_habits"] = []
+        new_user["today_plan"] = {}
         return new_user
 
     def update_user(self, user_id: str, updates: dict):
@@ -45,12 +79,14 @@ class SheetDB:
                 if str(row["user_id"]) == str(user_id):
                     row_number = i + 2
                     headers = self.users.row_values(1)
+                    
                     if "profile" in updates:
                         updates["profile_json"] = json.dumps(updates.pop("profile"))
                     if "current_habits" in updates:
                         updates["current_habits_json"] = json.dumps(updates.pop("current_habits"))
                     if "today_plan" in updates:
                         updates["today_plan_json"] = json.dumps(updates.pop("today_plan"))
+                        
                     for key, value in updates.items():
                         if key in headers:
                             col = headers.index(key) + 1
