@@ -1,0 +1,6 @@
+groq
+langgraph
+gspread
+google-auth
+python-telegram-bot
+python-dotenv
