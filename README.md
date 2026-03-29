@@ -74,6 +74,3 @@ python app.py
 | `/reset` | Completely wipes your data for a fresh start. |
 
 ---
-
-## 📝 A Note on AI Behavior
-The prompts are specifically tuned for a **Supportive but Direct** persona. The bot is designed to be warm and human, avoiding typical "As an AI..." phrasing. It remembers your injuries, your current schedule, and exactly how hard yesterday felt.
