@@ -56,9 +56,6 @@ def build_negotiation_buttons(buttons_data: list) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[InlineKeyboardButton(b["text"], callback_data=b["data"])] for b in buttons_data])
 
 
-# =============================================
-# COMMAND HANDLERS
-# =============================================
 
 async def start_command(update: Update, context):
     user_id = str(update.effective_user.id)
@@ -180,9 +177,6 @@ async def resume_command(update: Update, context):
     print(f"   🔄 User {user_id} resumed")
 
 
-# =============================================
-# BUTTON HANDLER
-# =============================================
 
 async def handle_button(update: Update, context):
     query = update.callback_query
