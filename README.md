@@ -1,161 +1,124 @@
-# Telegram Fitness Agent: AI Personal Coach
+# 🏋️ Telegram Fitness Coach Bot
 
-A production-grade Telegram fitness agent built with Python, LangGraph, and Groq. This agent functions as a persistent fitness coach that tracks progress, negotiates daily plans, and adapts to user feedback through a multi-engine state machine.
+> A stateful, psychology-aware fitness agent that lives in your Telegram. Not a chatbot that answers fitness questions — an actual coach that remembers you, pushes back on excuses, and adapts when life gets in the way.
 
-Implements a **Psychology-Based Negotiation Protocol**, a **Recovery & Scaling System**, and **ChromaDB-powered Long-Term Memory** for contextual coaching across sessions.
+**[Try it live → @YourBotHandle](https://t.me/yourbothandle)**
 
 ---
 
-## 🏗️ System Architecture
+## What makes this different
+
+Most "AI fitness bots" are wrappers — you ask a question, you get an answer, conversation ends. This one runs a full state machine across your fitness journey. It knows if you've been slacking for three days. It remembers you mentioned a knee injury two weeks ago. When you say "I can't do this today," it doesn't fold — it asks why, explains its reasoning, and only then offers alternatives.
+
+That negotiation protocol is the core of the whole thing.
+
+---
+
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│                  Telegram Bot                    │
-│                   (app.py)                       │
-├──────────┬──────────┬──────────┬────────────────┤
-│ Onboard  │  Daily   │ Negoti-  │   Recovery     │
-│ Graph    │  Engine  │ ation    │   Engine       │
-│(graph.py)│(daily.py)│(negot.py)│ (recovery.py)  │
-├──────────┴──────────┴──────────┴────────────────┤
-│              Prompt Templates (prompts.py)        │
-├──────────────────┬──────────────────────────────┤
-│  Google Sheets   │   ChromaDB Vector Store       │
-│  (database.py)   │   (memory.py)                │
-│  Structured Data │   Semantic Long-Term Memory   │
-└──────────────────┴──────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│                   Telegram Bot (app.py)           │
+├──────────┬───────────┬────────────┬──────────────┤
+│ Onboard  │  Daily    │ Negotiation│   Recovery   │
+│ Graph    │  Engine   │  Engine    │   Engine     │
+├──────────┴───────────┴────────────┴──────────────┤
+│                  prompts.py (12 prompts)          │
+├───────────────────────┬──────────────────────────┤
+│    Google Sheets      │   ChromaDB (local)        │
+│    Structured data    │   Semantic memory recall  │
+└───────────────────────┴──────────────────────────┘
 ```
 
-- **LangGraph State Machine** — Multi-turn onboarding with structured data extraction.
-- **Daily Coaching Engine** — Morning plans, interactive task tracking, evening reflections.
-- **Negotiation Engine** — 3-round protocol: Explain → Offer Alternatives → Pull Rank.
-- **Recovery Engine** — Detects consistency gaps and triggers Micro-Habit scaling.
-- **Google Sheets DB** — Persistent store for user profiles, plans, and message logs.
-- **ChromaDB Memory** — Semantic vector search over all past conversations for long-term context recall.
+**Onboarding Graph** — LangGraph-powered. Collects five data points through natural conversation, extracts structured JSON from each LLM response, then classifies the user's fitness maturity before handing off to the daily loop.
+
+**Daily Engine** — Morning plans built from current habits, streak, and 7-day plan history. Task completion via inline Telegram buttons. Evening check-in adjusts tomorrow's intensity based on difficulty feedback.
+
+**Negotiation Engine** — Three rounds. Round 1: explain the plan's reasoning. Round 2: offer exactly two alternatives. Round 3: reference the user's own stated goal and make them decide. The protocol is borrowed from how real coaches handle resistance.
+
+**Recovery Engine** — After three consecutive "didn't feel like it" misses, it stops motivating and scales the plan down. Once two scaled-down days are completed, it rebuilds gradually. Also handles absences — gentle nudge at day 3, goes silent at day 7.
 
 ---
 
-## 🧠 Long-Term Memory (ChromaDB)
+## Long-Term Memory
 
-The bot uses **ChromaDB** with `all-MiniLM-L6-v2` sentence embeddings to solve the context forgetting problem.
+Every message gets dual-written: once to Google Sheets for structure, once to ChromaDB with a sentence embedding. On each new message, a semantic search runs over the user's full conversation history and the most relevant context gets injected into the prompt.
 
-**How it works:**
-1. Every message (user + assistant) is dual-written to both Google Sheets and ChromaDB.
-2. When a user sends a message, ChromaDB performs a **semantic search** across their entire conversation history.
-3. The most relevant past messages are injected into the LLM prompt as additional context.
+Practical result: if someone mentioned a knee injury during onboarding and asks for a leg day two weeks later, the bot recalls it without being told again.
 
-**Example:** If a user mentioned a knee injury on Day 1 and asks for leg exercises on Day 10, the bot automatically recalls the injury context and avoids recommending lunges.
+> **Deployment note:** ChromaDB stores vectors in `chroma_db/`. On Railway or Heroku, mount a persistent volume here or memory resets on every deploy.
 
 ---
 
-## 🔥 Key Features
+## Commands
 
-- **Adaptive Onboarding** — LLM-driven classification to determine Fitness Maturity (Beginner → Advanced).
-- **Interactive Task Management** — Plans delivered with inline buttons for real-time progress tracking.
-- **Evening Reflection** — Collects difficulty feedback to adjust tomorrow's plan intensity.
-- **Smart Streak Handling** — Differentiates between excused misses (sick/work) and habit breaks.
-- **Automatic Scaledown** — Scales tasks down to 5-10 minute Micro-Habits after consecutive misses.
-- **Semantic Memory** — Remembers user context across sessions using ChromaDB vector search.
-
----
-
-## 🛠️ Technical Stack
-
-| Component | Technology |
-|:---|:---|
-| LLM | [Groq](https://groq.com/) — Llama-3.3-70B-Versatile |
-| Bot Framework | `python-telegram-bot` v20+ |
-| State Orchestration | `LangGraph` |
-| Structured Database | Google Sheets API via `gspread` |
-| Vector Memory | `ChromaDB` + `sentence-transformers` |
-| Runtime | Python 3.11+ |
+| Command | What it does |
+|---|---|
+| `/start` | Onboarding for new users, or welcome back for existing ones |
+| `/plan` | Generate today's plan (skips if one already exists) |
+| `/checkin` | Evening reflection — collects difficulty feedback |
+| `/status` | Dashboard: goal, level, streak, habits, today's progress |
+| `/resume` | Re-activates after a 7-day absence pause |
+| `/reset` | Wipes everything — Sheets rows + ChromaDB vectors |
 
 ---
 
-## 📂 Project Structure
+## Tech Stack
 
-```
-telegram-fitness-agent-bot/
-├── app.py                  # Entry point — Telegram handlers & command routing
-├── config.py               # Environment config & client initializations
-├── database.py             # Google Sheets abstraction layer (SheetDB)
-├── memory.py               # ChromaDB long-term memory (semantic search)
-├── graph.py                # LangGraph onboarding state machine
-├── prompts.py              # All LLM system prompts & persona templates
-├── engines/
-│   ├── __init__.py
-│   ├── daily.py            # Morning plans, task completion, evening check-in
-│   ├── negotiation.py      # 3-round psychology-based plan negotiation
-│   └── recovery.py         # Missed days detection & habit scaling
-├── requirements.txt
-├── Procfile                # Railway/Heroku deployment config
-├── runtime.txt             # Python version specification
-├── .env.example            # Environment variable template
-└── .gitignore
-```
+| Layer | Choice |
+|---|---|
+| LLM | Groq / Llama-3.3-70B |
+| Bot | python-telegram-bot v20+ |
+| State orchestration | LangGraph |
+| Database | Google Sheets via gspread |
+| Vector memory | ChromaDB + sentence-transformers |
 
 ---
 
-## 🚀 Installation & Setup
+## Setup
 
-### 1. Prerequisites
-- Python 3.11+
-- Telegram Bot token from [@BotFather](https://t.me/botfather)
-- Groq API Key from [Groq Console](https://console.groq.com/)
-- Google Cloud Service Account (JSON key) with Sheets & Drive API enabled
+**Prerequisites:** Python 3.11+, Telegram bot token, Groq API key, Google Cloud service account with Sheets + Drive APIs.
 
-### 2. Google Sheets Configuration
-1. Create a new Google Sheet.
-2. Enable **Google Sheets API** and **Google Drive API** in Google Cloud Console.
-3. Create a **Service Account**, download the JSON key.
-4. Share the Google Sheet with the Service Account email as **Editor**.
-5. Copy the Google Sheet URL.
-
-### 3. Clone and Install
 ```bash
 git clone https://github.com/PythonicDG/telegram-fitness-agent.git
 cd telegram-fitness-agent
 pip install -r requirements.txt
 ```
 
-### 4. Environment Variables
-Create a `.env` file in the root directory:
+Create `.env`:
 ```env
-TELEGRAM_BOT_TOKEN="your_telegram_bot_token"
-GROQ_API_KEY="your_groq_api_key"
+TELEGRAM_BOT_TOKEN="your_token"
+GROQ_API_KEY="your_groq_key"
 GOOGLE_SHEET_URL="https://docs.google.com/spreadsheets/d/your_sheet_id/"
-GOOGLE_SERVICE_ACCOUNT_JSON='{"type": "service_account", ...}'
+GOOGLE_SERVICE_ACCOUNT_JSON='{"type":"service_account",...}'
 ```
 
-> **Note**: For `GOOGLE_SERVICE_ACCOUNT_JSON`, paste the entire JSON key content as a single-line string.
-
-### 5. Run
 ```bash
 python app.py
 ```
 
----
-
-## 🎮 Bot Commands
-
-| Command | Description |
-|:---|:---|
-| `/start` | Initialize onboarding or resume active session |
-| `/plan` | Generate daily mission with interactive task buttons |
-| `/checkin` | Evening reflection to evaluate and adjust difficulty |
-| `/status` | User dashboard — Goal, Level, Streak, Habits |
-| `/resume` | Manual trigger for Recovery Engine after inactivity |
-| `/reset` | Wipe all user data (Sheets + ChromaDB) for fresh start |
+The bot auto-creates `users`, `messages`, and `daily_plans` worksheet tabs on first run. The Google Sheet just needs to exist and be shared with the service account as Editor.
 
 ---
 
-## 🚢 Deployment
+## Project Structure
 
-Deployment-ready for **Railway**, **Koyeb**, or **Heroku**.
-
-> **Note on ChromaDB**: ChromaDB stores vectors locally in `chroma_db/`. On platforms with ephemeral filesystems (Railway, Heroku), use a **Volume Mount** to persist this directory across deploys.
+```
+telegram-fitness-agent/
+├── app.py               # Telegram handlers, commands, button callbacks
+├── config.py            # Env loading, Groq + gspread clients
+├── database.py          # SheetDB abstraction layer
+├── memory.py            # ChromaDB store / recall / clear
+├── graph.py             # LangGraph onboarding state machine
+├── prompts.py           # 12 LLM system prompt templates
+└── engines/
+    ├── daily.py         # Plans, task completion, check-ins, freeform chat
+    ├── negotiation.py   # 3-round negotiation protocol
+    └── recovery.py      # Miss handling, scale-down, rebuild, absence detection
+```
 
 ---
 
-## 📝 License
+## License
 
-This project is licensed under the MIT License.
+MIT
