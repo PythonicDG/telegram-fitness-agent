@@ -28,18 +28,41 @@ def call_llm(system_prompt: str, messages: list) -> str:
     )
     return response.choices[0].message.content
 
+
 # --- Google Sheets Client ---
 def get_gspread_client():
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
-    try:
-        creds_dict = json.loads(GOOGLE_SERVICE_ACCOUNT_JSON)
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-    except (json.JSONDecodeError, TypeError):
-        creds = Credentials.from_service_account_file(GOOGLE_SERVICE_ACCOUNT_JSON, scopes=scopes)
+    raw_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if not raw_json:
+        raise ValueError("❌ GOOGLE_SERVICE_ACCOUNT_JSON not found in environment!")
+
+    # Try to clean common escaping / formatting artifacts
+    json_str = raw_json.strip()
+    
+    # Handle double escaping if present (e.g. from some .env loaders)
+    if '\\"' in json_str:
+        json_str = json_str.replace('\\"', '"')
+    
+    # If it's a path to a file, use that
+    if os.path.isfile(json_str):
+        creds = Credentials.from_service_account_file(json_str, scopes=scopes)
+    else:
+        # Otherwise treat as string
+        try:
+            creds_dict = json.loads(json_str)
+            creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        except json.JSONDecodeError as e:
+            # Final fallback: Maybe it was just a filename after all that doesn't exist
+            if json_str.startswith('{'):
+                 raise ValueError(f"❌ GOOGLE_SERVICE_ACCOUNT_JSON looks like JSON but is invalid: {e}")
+            else:
+                 raise ValueError(f"❌ GOOGLE_SERVICE_ACCOUNT_JSON is not a valid JSON string and file not found: {json_str[:50]}...")
+
     return gspread.authorize(creds)
+
 
 gc = get_gspread_client()
 spreadsheet = gc.open_by_url(SHEET_URL)
