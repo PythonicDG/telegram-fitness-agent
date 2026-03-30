@@ -6,7 +6,8 @@ from chromadb.utils import embedding_functions
 from datetime import datetime
 
 
-CHROMA_DATA_PATH = os.path.join(os.getcwd(), "chroma_db")
+# Persistent storage directory (Allow override via env for Render/Docker volumes)
+CHROMA_DATA_PATH = os.getenv("CHROMA_DB_PATH", os.path.join(os.getcwd(), "chroma_db"))
 
 embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
     model_name="all-MiniLM-L6-v2"

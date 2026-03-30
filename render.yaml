@@ -1,0 +1,24 @@
+services:
+  - type: worker
+    name: fitness-agent-bot
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python app.py"
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GOOGLE_SHEET_URL
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: CHROMA_DB_PATH
+        value: /data/chroma_db
+      # Optional: where sentence-transformers can cache its models
+      - key: SENTENCE_TRANSFORMERS_HOME
+        value: /data/transformers_cache
+    disk:
+      name: chroma-data
+      mountPath: /data
+      sizeGB: 1

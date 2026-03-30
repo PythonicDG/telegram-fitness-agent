@@ -123,6 +123,21 @@ telegram-fitness-agent/
 
 ---
 
+## 🚢 Deployment (Render)
+
+This bot is already configured with a **Render Blueprint (`render.yaml`)**.
+
+1.  Push your code to **GitHub**.
+2.  Go to the **[Render Dashboard](https://dashboard.render.com/)**.
+3.  Click **New +** → **Blueprint**.
+4.  Connect your GitHub repository.
+5.  Render will see your `render.yaml` and prompt you for:
+    *   `TELEGRAM_BOT_TOKEN`, `GROQ_API_KEY`, `GOOGLE_SHEET_URL`, `GOOGLE_SERVICE_ACCOUNT_JSON`.
+
+**Persistence:** A 1GB persistent disk is automatically mounted at `/data` to store your **ChromaDB** memory and cached transformer models. This ensures the bot never "forgets" context after a reboot.
+
+---
+
 ## License
 
 MIT
