@@ -4,6 +4,10 @@
 
 **[Try it live → @YourBotHandle](https://t.me/fitness_power_ai_agent_bot)**
 
+<p align="center">
+  <img src="static/demo.gif" alt="Bot demo" width="280"/>
+</p>
+
 ---
 
 ## What makes this different
